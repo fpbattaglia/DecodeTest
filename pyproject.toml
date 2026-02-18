@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=45", "wheel", "setuptools_scm>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "replay_decoder"
+version = "0.1.0"
+description = "Multivariate decoding analysis for neural replay detection"
+readme = "README.md"
+authors = [{name = "Based on Liu et al. (2019)"}]
+license = {text = "MIT"}
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+]
+keywords = ["neuroscience", "MEG", "EEG", "replay", "decoding", "hippocampus"]
+requires-python = ">=3.7"
+dependencies = [
+    "numpy>=1.19.0",
+    "scipy>=1.5.0",
+    "scikit-learn>=0.24.0",
+    "matplotlib>=3.3.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=6.0",
+    "pytest-cov>=2.10",
+    "jupyter>=1.0",
+    "seaborn>=0.11",
+]
+notebook = [
+    "jupyter>=1.0",
+    "seaborn>=0.11",
+]
+
+[project.urls]
+Homepage = "https://github.com/yourusername/replay_decoder"
+Documentation = "https://github.com/yourusername/replay_decoder#readme"
+Repository = "https://github.com/yourusername/replay_decoder"
+"Bug Tracker" = "https://github.com/yourusername/replay_decoder/issues"
+"Original Paper" = "https://doi.org/10.1016/j.cell.2019.06.012"

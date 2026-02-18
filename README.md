@@ -25,21 +25,40 @@ This implementation detects sequential replay of neural representations during r
 
 ## Installation
 
-### Requirements
+### From Source
 
 ```bash
-pip install numpy scipy scikit-learn matplotlib seaborn jupyter
+# Clone or download the repository
+cd DecodeTest
+
+# Install in development mode
+pip install -e .
+
+# Or install with optional dependencies
+pip install -e ".[dev]"  # Includes testing tools
+pip install -e ".[notebook]"  # Includes Jupyter
 ```
 
-### Python Version
-Python 3.7 or higher
+### Requirements
+
+- Python 3.7 or higher
+- numpy >= 1.19.0
+- scipy >= 1.5.0
+- scikit-learn >= 0.24.0
+- matplotlib >= 3.3.0
+
+### Optional Dependencies
+
+- jupyter >= 1.0 (for notebooks)
+- seaborn >= 0.11 (for enhanced visualizations)
+- pytest >= 6.0 (for testing)
 
 ## Quick Start
 
 ### 1. Basic Usage
 
 ```python
-from multivariate_replay_decoder import MultivariateReplayDecoder
+from replay_decoder import MultivariateReplayDecoder
 import numpy as np
 
 # Initialize decoder

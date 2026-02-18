@@ -1,0 +1,15 @@
+# Include documentation
+include README.md
+include LICENSE
+
+# Include example notebooks
+include *.ipynb
+
+# Include paper
+include *.pdf
+
+# Exclude development files
+exclude .gitignore
+recursive-exclude * __pycache__
+recursive-exclude * *.py[co]
+recursive-exclude * .DS_Store
