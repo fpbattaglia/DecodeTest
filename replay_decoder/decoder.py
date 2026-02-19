@@ -5,6 +5,7 @@ This module implements the main decoding algorithm from Liu et al. (2019).
 """
 
 import numpy as np
+from pygments.util import docstring_headline
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
 
@@ -345,7 +346,7 @@ class MultivariateReplayDecoder:
         return accuracy
 
     def permutation_test(self, reactivation_probs, transition_matrix,
-                        n_permutations=1000, time_lags_ms=None):
+                        n_permutations=1000, time_lags_ms=None ,alpha_control=False):
         """
         Statistical testing via permutation of stimulus labels.
 
@@ -359,6 +360,8 @@ class MultivariateReplayDecoder:
             Number of permutations for null distribution
         time_lags_ms : array-like, optional
             Time lags to test
+        alpha_control : bool, default=False
+            Whether to control for alpha oscillations with the Liu et al. (2019) method
 
         Returns
         -------
@@ -370,7 +373,7 @@ class MultivariateReplayDecoder:
             True sequenceness values
         """
         true_seq, time_lags = self.compute_sequenceness(
-            reactivation_probs, transition_matrix, time_lags_ms
+            reactivation_probs, transition_matrix, time_lags_ms, alpha_control=alpha_control
         )
 
         perm_max_abs = np.zeros(n_permutations)
