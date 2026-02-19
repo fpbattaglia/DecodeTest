@@ -192,7 +192,7 @@ class MultivariateReplayDecoder:
 
                 try:
                     beta = np.linalg.lstsq(X_reg, y_i, rcond=None)[0]
-                    beta_matrix[state_i, :] = beta[:n_states]
+                    beta_matrix[:, state_i] = beta[:n_states]
                 except:
                     continue
 
