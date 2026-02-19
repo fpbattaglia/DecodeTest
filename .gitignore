@@ -77,3 +77,4 @@ venv.bak/
 *.jpeg
 *.pdf
 *.svg
+/.editorconfig

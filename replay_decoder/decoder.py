@@ -3,6 +3,7 @@ Core decoder class for multivariate replay analysis.
 
 This module implements the main decoding algorithm from Liu et al. (2019).
 """
+from logging import exception
 
 import numpy as np
 from pygments.util import docstring_headline
@@ -129,7 +130,7 @@ class MultivariateReplayDecoder:
         return probabilities
 
     def compute_sequenceness(self, reactivation_probs, transition_matrix,
-                            time_lags_ms=None, alpha_control=True):
+                            time_lags_ms=None, alpha_control=False):
         """
         Compute sequenceness measure using time-lagged regression.
 
@@ -145,7 +146,7 @@ class MultivariateReplayDecoder:
         time_lags_ms : array-like, optional
             Specific time lags to test in milliseconds.
             If None, tests lags from 10ms to max_lag_ms in 10ms steps.
-        alpha_control : bool, default=True
+        alpha_control : bool, default=False
             Whether to include nuisance regressors for 10Hz oscillations
 
         Returns
@@ -193,7 +194,8 @@ class MultivariateReplayDecoder:
                 try:
                     beta = np.linalg.lstsq(X_reg, y_i, rcond=None)[0]
                     beta_matrix[:, state_i] = beta[:n_states]
-                except:
+                except Exception as e:
+                    print(f"Error calculating beta for state {state_i} and lag {lag}: {e}")
                     continue
 
             # Project onto transition matrix (Frobenius inner product)
@@ -204,7 +206,7 @@ class MultivariateReplayDecoder:
 
         return sequenceness, time_lags_ms
 
-    def _create_lagged_matrix(self, reactivation_probs, lag, alpha_control=True):
+    def _create_lagged_matrix(self, reactivation_probs, lag, alpha_control=False):
         """
         Create time-lagged predictor matrix with optional alpha confounds.
 
@@ -378,18 +380,24 @@ class MultivariateReplayDecoder:
 
         perm_max_abs = np.zeros(n_permutations)
 
+        n_valid_perms = 0
         for perm in range(n_permutations):
             # Permute transition matrix (shuffle rows and columns together)
             perm_indices = np.random.permutation(self.n_states)
+
+            if (np.array([0, 1, 2, 3]) == perm_indices).all() or (perm_indices == np.array([3, 2, 1, 0])).all():
+                continue
+
             P_perm = transition_matrix[perm_indices, :][:, perm_indices]
 
             perm_seq, _ = self.compute_sequenceness(
                 reactivation_probs, P_perm, time_lags_ms
             )
 
-            perm_max_abs[perm] = np.max(np.abs(perm_seq))
+            perm_max_abs[n_valid_perms] = np.max(np.abs(perm_seq))
+            n_valid_perms += 1
 
-        threshold = np.percentile(perm_max_abs, 95)
+        threshold = np.percentile(perm_max_abs[:n_valid_perms], 95)
 
         p_values = np.array([
             np.mean(perm_max_abs >= np.abs(seq_val))
