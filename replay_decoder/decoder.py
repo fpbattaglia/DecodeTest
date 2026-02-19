@@ -254,6 +254,96 @@ class MultivariateReplayDecoder:
 
         return X_lag
 
+    def permutation_test_decoding(self, X_test, y_test, n_permutations=1000):
+        """
+        Permutation test for basic decoding accuracy (Figure S3c, S3d).
+
+        This tests whether the classifiers can decode stimuli better than chance
+        by randomly permuting the labels and recomputing accuracy.
+
+        Parameters
+        ----------
+        X_test : ndarray, shape (n_trials, n_timepoints, n_sensors) or (n_trials, n_sensors)
+            Test data. If 3D, should specify time_point_ms to extract timepoint.
+        y_test : ndarray, shape (n_trials,)
+            True labels for test data
+        n_permutations : int, default=1000
+            Number of random permutations
+
+        Returns
+        -------
+        true_accuracy : float
+            True decoding accuracy
+        perm_accuracies : ndarray, shape (n_permutations,)
+            Null distribution of accuracies from permuted labels
+        p_value : float
+            P-value (proportion of permutations >= true accuracy)
+        threshold : float
+            95th percentile of null distribution
+
+        Notes
+        -----
+        This implements the permutation test shown in Figure S3 panels c and d,
+        where the dotted line shows the permutation threshold for classifier
+        performance during the functional localizer task.
+        """
+        if not self.classifiers:
+            raise ValueError("Classifiers not trained. Call train_classifiers() first.")
+
+        # If 3D data, we need a timepoint - use the same as training (200ms default)
+        if X_test.ndim == 3:
+            # Assume 200ms timepoint (can be made parameter if needed)
+            time_idx = int(200 * self.sampling_rate / 1000)
+            X_test = X_test[:, time_idx, :]
+
+        # Compute true accuracy
+        true_accuracy = self._compute_accuracy(X_test, y_test)
+
+        # Permutation test
+        perm_accuracies = np.zeros(n_permutations)
+        for perm in range(n_permutations):
+            # Shuffle labels
+            y_perm = np.random.permutation(y_test)
+            perm_accuracies[perm] = self._compute_accuracy(X_test, y_perm)
+
+        # Compute p-value and threshold
+        p_value = np.mean(perm_accuracies >= true_accuracy)
+        threshold = np.percentile(perm_accuracies, 95)
+
+        return true_accuracy, perm_accuracies, p_value, threshold
+
+    def _compute_accuracy(self, X, y_true):
+        """
+        Compute classification accuracy.
+
+        Parameters
+        ----------
+        X : ndarray, shape (n_trials, n_sensors)
+            Test data (2D)
+        y_true : ndarray, shape (n_trials,)
+            True labels
+
+        Returns
+        -------
+        accuracy : float
+            Proportion of correctly classified trials
+        """
+        n_trials = X.shape[0]
+        predictions = np.zeros(n_trials, dtype=int)
+
+        for trial in range(n_trials):
+            # Get probability from each classifier
+            probs = np.zeros(self.n_states)
+            for state in range(self.n_states):
+                X_scaled = self.scalers[state].transform(X[trial:trial+1, :])
+                probs[state] = self.classifiers[state].predict_proba(X_scaled)[0, 1]
+
+            # Predict the state with highest probability
+            predictions[trial] = np.argmax(probs)
+
+        accuracy = np.mean(predictions == y_true)
+        return accuracy
+
     def permutation_test(self, reactivation_probs, transition_matrix,
                         n_permutations=1000, time_lags_ms=None):
         """
