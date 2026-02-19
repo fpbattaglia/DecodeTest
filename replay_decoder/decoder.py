@@ -130,7 +130,7 @@ class MultivariateReplayDecoder:
         return probabilities
 
     def compute_sequenceness(self, reactivation_probs, transition_matrix,
-                            time_lags_ms=None, alpha_control=False):
+                            time_lags_ms=None, alpha_control=False, nuisance_predictors=None):
         """
         Compute sequenceness measure using time-lagged regression.
 
@@ -148,6 +148,9 @@ class MultivariateReplayDecoder:
             If None, tests lags from 10ms to max_lag_ms in 10ms steps.
         alpha_control : bool, default=False
             Whether to include nuisance regressors for 10Hz oscillations
+        nuisance_predictors : ndarray, optional, shape (n_timepoints, n_nuisance_predictors)
+            User-provided nuisance predictors to include in regression model.
+            If None, no additional nuisance predictors are included.
 
         Returns
         -------
@@ -179,7 +182,7 @@ class MultivariateReplayDecoder:
         P = transition_matrix / (np.sum(transition_matrix) + 1e-10)
 
         for lag_idx, lag in enumerate(time_lags_samples):
-            X_lag = self._create_lagged_matrix(reactivation_probs, lag, alpha_control)
+            X_lag = self._create_lagged_matrix(reactivation_probs, lag, alpha_control, nuisance_predictors)
 
             beta_matrix = np.zeros((n_states, n_states))
 
@@ -206,7 +209,7 @@ class MultivariateReplayDecoder:
 
         return sequenceness, time_lags_ms
 
-    def _create_lagged_matrix(self, reactivation_probs, lag, alpha_control=False):
+    def _create_lagged_matrix(self, reactivation_probs, lag, alpha_control=False, nuisance_predictors=None):
         """
         Create time-lagged predictor matrix with optional alpha confounds.
 
@@ -218,6 +221,8 @@ class MultivariateReplayDecoder:
             Time lag in samples
         alpha_control : bool
             Whether to include 10Hz confound regressors
+        nuisance_predictors : ndarray, optional, shape (n_timepoints, n_nuisance_predictors)
+            User-provided nuisance predictors to include in design matrix
 
         Returns
         -------
@@ -231,8 +236,9 @@ class MultivariateReplayDecoder:
         else:
             X_lag = reactivation_probs[-lag:, :]
 
+        confounds_list = []
+
         if alpha_control:
-            confounds = []
             for extra_lag_ms in range(100, 700, 100):
                 extra_lag_samples = int(extra_lag_ms * self.sampling_rate / 1000)
                 total_lag = lag + extra_lag_samples
@@ -244,13 +250,25 @@ class MultivariateReplayDecoder:
                         confound = reactivation_probs[-total_lag:, :]
 
                     min_len = min(X_lag.shape[0], confound.shape[0])
-                    confounds.append(confound[:min_len, :])
+                    confounds_list.append(confound[:min_len, :])
 
-            if confounds:
-                min_len = min([X_lag.shape[0]] + [c.shape[0] for c in confounds])
-                X_lag = X_lag[:min_len, :]
-                confounds = [c[:min_len, :] for c in confounds]
-                X_lag = np.hstack([X_lag] + confounds)
+        # Add user-provided nuisance predictors
+        if nuisance_predictors is not None:
+            # Apply the same lag to nuisance predictors
+            if lag > 0:
+                nuisance_lag = nuisance_predictors[:-lag, :]
+            else:
+                nuisance_lag = nuisance_predictors[-lag:, :]
+
+            min_len = min(X_lag.shape[0], nuisance_lag.shape[0])
+            confounds_list.append(nuisance_lag[:min_len, :])
+
+        # Combine all confounds with X_lag
+        if confounds_list:
+            min_len = min([X_lag.shape[0]] + [c.shape[0] for c in confounds_list])
+            X_lag = X_lag[:min_len, :]
+            confounds_list = [c[:min_len, :] for c in confounds_list]
+            X_lag = np.hstack([X_lag] + confounds_list)
 
         # Add constant term
         X_lag = np.hstack([X_lag, np.ones((X_lag.shape[0], 1))])
@@ -348,7 +366,7 @@ class MultivariateReplayDecoder:
         return accuracy
 
     def permutation_test(self, reactivation_probs, transition_matrix,
-                        n_permutations=1000, time_lags_ms=None ,alpha_control=False):
+                        n_permutations=1000, time_lags_ms=None, alpha_control=False, nuisance_predictors=None):
         """
         Statistical testing via permutation of stimulus labels.
 
@@ -364,6 +382,8 @@ class MultivariateReplayDecoder:
             Time lags to test
         alpha_control : bool, default=False
             Whether to control for alpha oscillations with the Liu et al. (2019) method
+        nuisance_predictors : ndarray, optional, shape (n_timepoints, n_nuisance_predictors)
+            User-provided nuisance predictors to include in regression model
 
         Returns
         -------
@@ -375,7 +395,8 @@ class MultivariateReplayDecoder:
             True sequenceness values
         """
         true_seq, time_lags = self.compute_sequenceness(
-            reactivation_probs, transition_matrix, time_lags_ms, alpha_control=alpha_control
+            reactivation_probs, transition_matrix, time_lags_ms, alpha_control=alpha_control,
+            nuisance_predictors=nuisance_predictors
         )
 
         perm_max_abs = np.zeros(n_permutations)
@@ -391,7 +412,8 @@ class MultivariateReplayDecoder:
             P_perm = transition_matrix[perm_indices, :][:, perm_indices]
 
             perm_seq, _ = self.compute_sequenceness(
-                reactivation_probs, P_perm, time_lags_ms
+                reactivation_probs, P_perm, time_lags_ms, alpha_control=alpha_control,
+                nuisance_predictors=nuisance_predictors
             )
 
             perm_max_abs[n_valid_perms] = np.max(np.abs(perm_seq))
